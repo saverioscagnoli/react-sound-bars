@@ -1,0 +1,24 @@
+{
+  "name": "sound-bars",
+  "repository": "https://github.com/saverioscagnoli/react-sound-bars.git",
+  "author": "svscagn <95577971+saverioscagnoli@users.noreply.github.com>",
+  "license": "MIT",
+  "private": "true",
+  "scripts": {
+    "postinstall": "husky"
+  },
+  "lint-staged": {
+    "**/*": "prettier --write --ignore-unknown"
+  },
+  "workspaces": [
+    "packages/*"
+  ],
+  "dependencies": {
+    "typescript": "^5.4.5"
+  },
+  "devDependencies": {
+    "husky": "^9.0.11",
+    "lint-staged": "^15.2.2",
+    "prettier": "^3.2.5"
+  }
+}
