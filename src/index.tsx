@@ -1,5 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 
+type CustomDrawFunctionArgs = {
+  canvasWidth: number;
+  canvasHeight: number;
+  barWidth: number;
+  barHeight: number;
+  index: number;
+  x: number;
+};
+
 type AudioVisualizerProps = React.ComponentPropsWithoutRef<"canvas"> & {
   src: string;
   autoStart?: boolean;
@@ -7,8 +16,24 @@ type AudioVisualizerProps = React.ComponentPropsWithoutRef<"canvas"> & {
   paused?: boolean;
 
   barWidth?: number | ((canvasWidth: number, freqLength: number) => number);
-  barHeight?: (val: number, index: number, freqLength: number) => number;
-  barColor?: (val: number, index: number, freqLength: number) => string;
+  barHeight?: (
+    defaultHeight: number,
+    index: number,
+    freqLength: number
+  ) => number;
+  barColor?: (
+    defaultHeight: number,
+    index: number,
+    freqLength: number
+  ) => string;
+
+  spaceBetweenBars?: number;
+  fftSize?: number;
+
+  customDrawFunction?: (
+    ctx: CanvasRenderingContext2D,
+    args: CustomDrawFunctionArgs
+  ) => void;
 };
 
 const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
@@ -19,6 +44,9 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
   barWidth,
   barHeight,
   barColor,
+  spaceBetweenBars = 1,
+  fftSize = 2048,
+  customDrawFunction,
   ...props
 }) => {
   const [audioCtx, setAudioCtx] = useState<AudioContext | null>(null);
@@ -54,28 +82,40 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
     let x = 0;
 
     for (let i = 0; i < freq.length; i++) {
-      const val = freq.at(i) || freq[i];
+      const defaultHeight = freq[i];
 
       let bh: number;
 
       if (barHeight) {
-        bh = barHeight(val, i, freq.length);
+        bh = barHeight(defaultHeight, i, freq.length);
       } else {
-        bh = val * 0.5;
+        bh = defaultHeight;
       }
 
       let bc: string;
 
       if (barColor) {
-        bc = barColor(i, val, freq.length);
+        bc = barColor(i, defaultHeight, freq.length);
       } else {
         bc = "green";
       }
 
       ctx.fillStyle = bc;
-      ctx.fillRect(ctx.canvas.width / 2 - x, ctx.canvas.height - bh, bw, bh);
-      ctx.fillRect(ctx.canvas.width / 2 + x, ctx.canvas.height - bh, bw, bh);
-      x += bw;
+
+      if (customDrawFunction) {
+        customDrawFunction(ctx, {
+          canvasWidth: ctx.canvas.width,
+          canvasHeight: ctx.canvas.height,
+          barWidth: bw,
+          barHeight: bh,
+          index: i,
+          x
+        });
+      } else {
+        ctx.fillRect(x, ctx.canvas.height - bh, bw, bh);
+      }
+
+      x += bw + spaceBetweenBars;
     }
 
     frameID = requestAnimationFrame(() => drawBars(analyser, ctx));
@@ -112,7 +152,7 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
     const ctx = canvas.getContext("2d")!;
     const analyser = audioCtx.createAnalyser();
 
-    analyser.fftSize = 256;
+    analyser.fftSize = fftSize;
 
     fetch(src)
       .then(res => res.arrayBuffer())

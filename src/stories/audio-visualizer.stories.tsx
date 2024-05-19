@@ -11,16 +11,17 @@ export default meta;
 
 //import exampleAudio from "../assets/example.ogg";
 //import sanctuaryGuardian from "../assets/sanctuary_guardian.mp3";
-import onett from "../assets/onett.mp3";
 
 type Story = StoryObj<typeof AudioVisualizer>;
 
 export const Default: Story = {
   render: ({
-    src = onett,
+    src: _,
 
     ...props
   }) => {
+    const [src, setSrc] = React.useState<string | null>(null);
+
     return (
       <div
         style={{
@@ -31,13 +32,50 @@ export const Default: Story = {
           justifyContent: "center"
         }}
       >
-        <AudioVisualizer
-          src={src}
-          width={800}
-          height={400}
-          barHeight={val => val * 0.75}
-          {...props}
+        <input
+          type="file"
+          onChange={e => {
+            const file = e.target.files?.[0];
+            if (file) {
+              const reader = new FileReader();
+              reader.readAsDataURL(file);
+              reader.onload = () => {
+                setSrc(reader.result?.toString() ?? "");
+              };
+            }
+          }}
         />
+        {src && (
+          <AudioVisualizer
+            src={src}
+            width={800}
+            height={400}
+            barWidth={(width, length) => (width / length) * 10}
+            barHeight={val => val}
+            barColor={(height, index, length) => {
+              const r = height + 25 * (index / length);
+              const g = 250 * (index / length);
+              const b = 50;
+
+              return `rgb(${r}, ${g}, ${b})`;
+            }}
+            customDrawFunction={(ctx, { x, barWidth, barHeight }) => {
+              ctx.fillRect(
+                ctx.canvas.width / 2 - x,
+                ctx.canvas.height - barHeight,
+                barWidth,
+                barHeight
+              );
+              ctx.fillRect(
+                ctx.canvas.width / 2 + x,
+                ctx.canvas.height - barHeight,
+                barWidth,
+                barHeight
+              );
+            }}
+            {...props}
+          />
+        )}
       </div>
     );
   }
