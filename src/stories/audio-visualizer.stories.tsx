@@ -21,6 +21,11 @@ export const Default: Story = {
     ...props
   }) => {
     const [src, setSrc] = React.useState<string | null>(null);
+    const [loaded, setLoaded] = React.useState<boolean>(false);
+    const [playing, setPlaying] = React.useState<boolean>(false);
+    const [over, setOver] = React.useState<boolean>(false);
+
+    const togglePlay = () => setPlaying(p => !p);
 
     return (
       <div
@@ -45,13 +50,20 @@ export const Default: Story = {
             }
           }}
         />
+        <button onClick={togglePlay}>
+          {playing ? "Pause" : over ? "Restart" : "Play"}
+        </button>
         {src && (
           <AudioVisualizer
             src={src}
             width={800}
             height={400}
+            playing={playing}
+            onPlayingChange={setPlaying}
+            ended={over}
+            onEndedChange={setOver}
             barWidth={(width, length) => (width / length) * 10}
-            barHeight={val => val}
+            barHeight={defaultHeight => defaultHeight}
             barColor={(height, index, length) => {
               const r = height + 25 * (index / length);
               const g = 250 * (index / length);
@@ -72,6 +84,16 @@ export const Default: Story = {
                 barWidth,
                 barHeight
               );
+            }}
+            autoStart={true}
+            onSourceLoaded={() => {
+              console.log("source loaded");
+            }}
+            onSourceStarted={() => {
+              console.log("source started");
+            }}
+            onSourceEnded={() => {
+              console.log("source ended");
             }}
             {...props}
           />

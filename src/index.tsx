@@ -13,7 +13,10 @@ type AudioVisualizerProps = React.ComponentPropsWithoutRef<"canvas"> & {
   src: string;
   autoStart?: boolean;
   stagger?: number;
-  paused?: boolean;
+  playing?: boolean;
+  onPlayingChange?: (playing: boolean) => void;
+  ended?: boolean;
+  onEndedChange?: (ended: boolean) => void;
 
   barWidth?: number | ((canvasWidth: number, freqLength: number) => number);
   barHeight?: (
@@ -34,28 +37,65 @@ type AudioVisualizerProps = React.ComponentPropsWithoutRef<"canvas"> & {
     ctx: CanvasRenderingContext2D,
     args: CustomDrawFunctionArgs
   ) => void;
+
+  onSourceStarted?: () => void;
+  onSourceLoaded?: (source: AudioBufferSourceNode) => void;
+  onSourceEnded?: () => void;
 };
 
 const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
   src,
   autoStart = true,
+  playing: playingProp,
+  onPlayingChange: onPlayingChangeProp,
+  ended: endedProp,
+  onEndedChange: onEndedChangeProp,
   stagger = 1,
-  paused = false,
   barWidth,
   barHeight,
   barColor,
   spaceBetweenBars = 1,
   fftSize = 2048,
   customDrawFunction,
+  onSourceStarted,
+  onSourceLoaded,
+  onSourceEnded,
   ...props
 }) => {
   const [audioCtx, setAudioCtx] = useState<AudioContext | null>(null);
+  const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null);
+  const [loaded, setLoaded] = useState<boolean>(false);
+
+  /**
+   * Since playing, setPlaying and ended, setEnded are requried to be controlled, we need to manage them internally
+   * if the user does not provide them, because while they are needed to work, they are not needed for the user to control
+   */
+  const [internalPlaying, setInternalPlaying] = useState<boolean>(false);
+  const [internalEnded, setInternalEnded] = useState<boolean>(false);
+
+  /**
+   * Check if the user provided the playing and ended props, if not, use the internal ones
+   */
+  const playing = playingProp ?? internalPlaying;
+  const onPlayingChange = onPlayingChangeProp ?? setInternalPlaying;
+  const ended = endedProp ?? internalEnded;
+  const onEndedChange = onEndedChangeProp ?? setInternalEnded;
+
+  const [started, setStarted] = useState<boolean>(false);
 
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const sourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
 
   let [frame, frameID] = [0, 0];
 
+  /**
+   * The drawing logic of the visualizer. The user can provide all the necessary customizations
+   * If not, use the default ones.
+   *
+   * @param analyser The analyser node
+   * @param ctx The context of the canvas
+   */
   const drawBars = (analyser: AnalyserNode, ctx: CanvasRenderingContext2D) => {
     frame++;
 
@@ -68,6 +108,9 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
     analyser.getByteFrequencyData(freq);
     ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 
+    /**
+     * Check for user customization and set bar width accordingly
+     */
     let bw: number;
 
     if (barWidth) {
@@ -84,6 +127,9 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
     for (let i = 0; i < freq.length; i++) {
       const defaultHeight = freq[i];
 
+      /**
+       * Check for user customization and set bar height and color accordingly
+       */
       let bh: number;
 
       if (barHeight) {
@@ -92,6 +138,9 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
         bh = defaultHeight;
       }
 
+      /**
+       * Check for user customization and set bar color accordingly
+       */
       let bc: string;
 
       if (barColor) {
@@ -102,6 +151,9 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
 
       ctx.fillStyle = bc;
 
+      /**
+       * If the user provided a custom draw function, use it, otherwise use the default one
+       */
       if (customDrawFunction) {
         customDrawFunction(ctx, {
           canvasWidth: ctx.canvas.width,
@@ -122,64 +174,159 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
   };
 
   /**
-   * Stop the music on unmount
+   * Function to load the audio file and create the audio buffer source node
    */
-  useEffect(() => {
-    const audioCtx = new AudioContext();
-    setAudioCtx(audioCtx);
-
-    return () => {
-      if (sourceRef.current) {
-        sourceRef.current.stop();
-      }
-    };
-  }, []);
-
-  useEffect(() => {
-    if (!audioCtx) return;
-
-    if (paused) {
-      audioCtx.suspend();
-    } else {
-      audioCtx.resume();
-    }
-  }, [paused, audioCtx]);
-
-  useEffect(() => {
+  const load = async () => {
     if (!canvasRef.current || !audioCtx) return;
 
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext("2d")!;
     const analyser = audioCtx.createAnalyser();
+
+    analyserRef.current = analyser;
 
     analyser.fftSize = fftSize;
 
-    fetch(src)
-      .then(res => res.arrayBuffer())
-      .then(arrayBuffer => audioCtx.decodeAudioData(arrayBuffer))
-      .then(audioBuffer => {
+    return new Promise<AudioBufferSourceNode>((res, rej) => {
+      /**
+       * If the audio buffer is present, means the audio file is already loaded, use that isntead
+       * (e.g the user wants to play the same audio file again)
+       */
+      if (audioBuffer) {
         const source = audioCtx.createBufferSource();
         source.buffer = audioBuffer;
 
         source.connect(analyser);
         analyser.connect(audioCtx.destination);
 
-        void (autoStart && source.start());
-        void (autoStart && drawBars(analyser, ctx));
+        setLoaded(true);
 
         sourceRef.current = source;
 
-        source.onended = () => {
-          cancelAnimationFrame(frameID);
-        };
-      });
+        res(source);
+      } else {
+        /**
+         * Else, fetch the audio file and decode it
+         */
+        fetch(src)
+          .then(res => res.arrayBuffer())
+          .then(arrayBuffer => audioCtx.decodeAudioData(arrayBuffer))
+          .then(audioBuffer => {
+            const source = audioCtx.createBufferSource();
+            source.buffer = audioBuffer;
+
+            source.connect(analyser);
+            analyser.connect(audioCtx.destination);
+
+            setLoaded(true);
+
+            sourceRef.current = source;
+
+            setAudioBuffer(audioBuffer);
+
+            res(source);
+          })
+          .catch(rej);
+      }
+    });
+  };
+
+  /**
+   * Function to start the source node and draw the visualizer
+   * Sets all the necessary flags and event listeners
+   */
+  const start = () => {
+    if (!sourceRef.current || !analyserRef.current || !canvasRef.current)
+      return;
+
+    sourceRef.current.start();
+
+    drawBars(analyserRef.current, canvasRef.current.getContext("2d")!);
+    setStarted(true);
+    onEndedChange?.(false);
+    onPlayingChange?.(true);
+
+    sourceRef.current.onended = () => {
+      onSourceEnded?.();
+      setStarted(false);
+      onEndedChange?.(true);
+      onPlayingChange?.(false);
+      cancelAnimationFrame(frameID);
+    };
+  };
+
+  /**
+   * When the component mounts, create the audio context
+   * When the component unmounts, close the audio context
+   */
+  useEffect(() => {
+    setAudioCtx(new AudioContext());
+
+    return () => {
+      audioCtx?.close();
+    };
+  }, []);
+
+  /**
+   * When the source changes, load the new audio file
+   */
+  useEffect(() => {
+    if (!audioCtx) return;
+
+    load();
   }, [src, audioCtx]);
 
-  return (
-    <>
-      <canvas {...props} ref={canvasRef} />
-    </>
-  );
+  /**
+   * When the source is loaded, call the onSourceLoaded callback
+   * If autoStart is true, start the audio
+   */
+  useEffect(() => {
+    if (!sourceRef.current) return;
+
+    if (loaded) {
+      onSourceLoaded?.(sourceRef.current);
+
+      if (autoStart) {
+        start();
+      }
+    }
+  }, [loaded]);
+
+  /**
+   * When the started flag is set to true, call the onSourceStarted callback
+   */
+  useEffect(() => {
+    if (started) {
+      onSourceStarted?.();
+    }
+  }, [started]);
+
+  /**
+   * When the playing flag changes, start / resume or pause the audio
+   *
+   * If the audio is playing, check if it is started.
+   * If it is started, resume, else start.
+   *
+   * If the audio is not playing, check if it is started.
+   * If it is started, suspend.
+   */
+  useEffect(() => {
+    if (!audioCtx || !loaded) return;
+
+    if (playing) {
+      if (started) {
+        audioCtx.resume();
+      } else if (ended) {
+        load().then(start).catch(console.error);
+      } else {
+        start();
+      }
+    } else {
+      if (started) {
+        audioCtx.suspend();
+      }
+    }
+  }, [playing, audioCtx, started, loaded]);
+
+  return <canvas {...props} ref={canvasRef} />;
 };
 
 export { AudioVisualizer };

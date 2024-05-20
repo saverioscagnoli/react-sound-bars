@@ -1,11 +1,11 @@
 {
-  "name": "react-sound-bars",
+  "name": "react-visual-audio",
   "version": "0.0.1",
   "main": "dist/index.js",
   "module": "dist/index.mjs",
   "types": "dist/index.d.ts",
   "type": "module",
-  "repository": "https://github.com/saverioscagnoli/react-sound-bars.git",
+  "repository": "https://github.com/saverioscagnoli/react-visual-audio.git",
   "author": "svscagn <95577971+saverioscagnoli@users.noreply.github.com>",
   "license": "MIT",
   "scripts": {
