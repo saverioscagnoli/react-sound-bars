@@ -1,6 +1,6 @@
 import { Meta, StoryObj } from "@storybook/react";
-import React from "react";
-import { AudioVisualizer } from "..";
+import React, { useState } from "react";
+import { AudioState, AudioVisualizer } from "..";
 
 const meta: Meta<typeof AudioVisualizer> = {
   title: "AudioVisualizer",
@@ -9,23 +9,34 @@ const meta: Meta<typeof AudioVisualizer> = {
 
 export default meta;
 
-//import exampleAudio from "../assets/example.ogg";
-//import sanctuaryGuardian from "../assets/sanctuary_guardian.mp3";
-
 type Story = StoryObj<typeof AudioVisualizer>;
 
 export const Default: Story = {
-  render: ({
-    src: _,
-
-    ...props
-  }) => {
+  render: ({ src: _, audioState: _1, onAudioStateChange: _2, ...props }) => {
     const [src, setSrc] = React.useState<string | null>(null);
-    const [loaded, setLoaded] = React.useState<boolean>(false);
-    const [playing, setPlaying] = React.useState<boolean>(false);
-    const [over, setOver] = React.useState<boolean>(false);
+    const [audioState, setAudioState] = useState<AudioState>("unset");
 
-    const togglePlay = () => setPlaying(p => !p);
+    const onClick = () => {
+      switch (audioState) {
+        case "playing": {
+          setAudioState("paused");
+
+          break;
+        }
+
+        case "paused": {
+          setAudioState("playing");
+
+          break;
+        }
+
+        case "ended": {
+          setAudioState("playing");
+        }
+      }
+    };
+
+    console.log(audioState);
 
     return (
       <div
@@ -37,6 +48,9 @@ export const Default: Story = {
           justifyContent: "center"
         }}
       >
+        <button onClick={onClick} disabled={audioState === "unset"}>
+          {audioState}
+        </button>
         <input
           type="file"
           onChange={e => {
@@ -50,18 +64,15 @@ export const Default: Story = {
             }
           }}
         />
-        <button onClick={togglePlay}>
-          {playing ? "Pause" : over ? "Restart" : "Play"}
-        </button>
+
         {src && (
           <AudioVisualizer
             src={src}
             width={800}
             height={400}
-            playing={playing}
-            onPlayingChange={setPlaying}
-            ended={over}
-            onEndedChange={setOver}
+            audioState={audioState}
+            onAudioStateChange={setAudioState}
+            autoStart={true}
             barWidth={(width, length) => (width / length) * 10}
             barHeight={defaultHeight => defaultHeight}
             barColor={(height, index, length) => {
@@ -84,16 +95,6 @@ export const Default: Story = {
                 barWidth,
                 barHeight
               );
-            }}
-            autoStart={true}
-            onSourceLoaded={() => {
-              console.log("source loaded");
-            }}
-            onSourceStarted={() => {
-              console.log("source started");
-            }}
-            onSourceEnded={() => {
-              console.log("source ended");
             }}
             {...props}
           />
