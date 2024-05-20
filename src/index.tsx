@@ -1,45 +1,169 @@
 import React, { useEffect, useRef, useState } from "react";
 
 type CustomDrawFunctionArgs = {
+  /**
+   * The width of the canvas where the visualizer is drawn
+   */
   canvasWidth: number;
+
+  /**
+   * The height of the canvas where the visualizer is drawn
+   */
   canvasHeight: number;
+
+  /**
+   * The width of each bar of the visualizer
+   */
   barWidth: number;
+
+  /**
+   * The height of each bar of the visualizer
+   */
   barHeight: number;
+
+  /**
+   * The index of the currently drawn bar
+   */
   index: number;
+
+  /**
+   * The default x of the canvas
+   */
   x: number;
 };
 
 type AudioVisualizerProps = React.ComponentPropsWithoutRef<"canvas"> & {
+  /**
+   * The source of the audio file as a string.
+   * It could be either a path to a local file, or a base64 string.
+   */
   src: string;
-  autoStart?: boolean;
-  stagger?: number;
+
+  /**
+   * A state variable that indicatedsif the source is playing. This is used to control
+   * the pausing / resuming of the source.
+   * It should be paired with the `onPlayingChange` prop.
+   *
+   * @example
+   * const [playing, setPlaying] = useState(false);
+   *
+   * return <AudioVisualizer src={...} playing={playing} onPlayingChange={setPlaying} />
+   */
   playing?: boolean;
+
+  /**
+   * Function used to toggle the playing state internally. It should be paired with the `playing` prop.
+   *
+   * @example
+   * const [playing, setPlaying] = useState(false);
+   *
+   * return <AudioVisualizer src={...} playing={playing} onPlayingChange={setPlaying} />
+   */
   onPlayingChange?: (playing: boolean) => void;
+
+  /**
+   * A state variable that indicates if the source has ended. This is used to control
+   * the ending / restarting of the source.
+   * It should be paired with the `onEndedChange` prop.
+   */
   ended?: boolean;
+
+  /**
+   * Function used to toggle the ended state internally. It should be paired with the `ended` prop.
+   */
   onEndedChange?: (ended: boolean) => void;
 
+  /**
+   * Wheter the source should start automatically after loading
+   * @default true
+   */
+  autoStart?: boolean;
+
+  /**
+   * The rate at which the rendering function should be throttled, saving performance.
+   * @default 1
+   */
+  stagger?: number;
+
+  /**
+   * The width of the bars. This could be a fixed number, or a function can be passed with the canvasWidth and
+   * the buffer length, so it can be setted programmatically.
+   *
+   * @default (canvasWidth, freqLength) => canvasWidth / freqLength
+   */
   barWidth?: number | ((canvasWidth: number, freqLength: number) => number);
+
+  /**
+   * The height of each bar. This is a function that must return the actual number.
+   * Note: this function gets called for each bar in the visualizer.
+   *
+   * @param defaultHeight The default height of the bar.
+   * @param index The index of the currently drawn bar
+   * @param freqLength The length of the audio buffer
+   * @returns The new bar height
+   */
   barHeight?: (
     defaultHeight: number,
     index: number,
     freqLength: number
   ) => number;
+
+  /**
+   * The color of each bar. This is a function that must return a CSS color.
+   * Note: this function gets called for each bar in the visualizer.
+   * @param defaultHeight The default height of the bar
+   * @param index The index of the currently drawn bar.
+   * @param freqLength The length of the audio buffer
+   * @returns The new bar color
+   */
   barColor?: (
     defaultHeight: number,
     index: number,
     freqLength: number
   ) => string;
 
+  /**
+   * The padding between each bar
+   */
   spaceBetweenBars?: number;
+
+  /**
+   * fftSize
+   * @default 2048
+   * @see https://developer.mozilla.org/en-US/docs/Web/API/AnalyserNode/fftSize
+   */
   fftSize?: number;
 
+  /**
+   * This is a custom function that defines how each bar is drawn.
+   * Note: this function gets called for each bar in the visualizer.
+   *
+   *
+   * @param ctx The canvas context
+   * @param args The necessary args to customize the drawing process
+   * @see CustomDrawFunctionArgs
+   *
+   * @default (ctx, { x, canvasHeight, barWidth, barHeight }) => ctx.fillRect(x, canvasHeight - barHeight, barWidth, barHeight);
+   */
   customDrawFunction?: (
     ctx: CanvasRenderingContext2D,
     args: CustomDrawFunctionArgs
   ) => void;
 
-  onSourceStarted?: () => void;
+  /**
+   * Callback function fired when the source is loaded
+   * @param source the source buffer
+   */
   onSourceLoaded?: (source: AudioBufferSourceNode) => void;
+
+  /**
+   * Callback function fired when the source starts.
+   */
+  onSourceStarted?: () => void;
+
+  /**
+   * Callback function fired when the source ends.
+   */
   onSourceEnded?: () => void;
 };
 
@@ -57,8 +181,8 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
   spaceBetweenBars = 1,
   fftSize = 2048,
   customDrawFunction,
-  onSourceStarted,
   onSourceLoaded,
+  onSourceStarted,
   onSourceEnded,
   ...props
 }) => {
