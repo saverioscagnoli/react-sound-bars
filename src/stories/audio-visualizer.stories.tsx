@@ -1,6 +1,7 @@
 import { Meta, StoryObj } from "@storybook/react";
-import React from "react";
+import React, { useState } from "react";
 import { AudioVisualizer } from "..";
+import { AudioState } from "../types";
 
 const meta: Meta<typeof AudioVisualizer> = {
   title: "AudioVisualizer",
@@ -9,23 +10,33 @@ const meta: Meta<typeof AudioVisualizer> = {
 
 export default meta;
 
-//import exampleAudio from "../assets/example.ogg";
-//import sanctuaryGuardian from "../assets/sanctuary_guardian.mp3";
-
 type Story = StoryObj<typeof AudioVisualizer>;
 
 export const Default: Story = {
-  render: ({
-    src: _,
-
-    ...props
-  }) => {
+  render: ({ src: _, audioState: _1, onAudioStateChange: _2, ...props }) => {
     const [src, setSrc] = React.useState<string | null>(null);
-    const [loaded, setLoaded] = React.useState<boolean>(false);
-    const [playing, setPlaying] = React.useState<boolean>(false);
-    const [over, setOver] = React.useState<boolean>(false);
+    const [audioState, setAudioState] = useState<AudioState>("unset");
 
-    const togglePlay = () => setPlaying(p => !p);
+    const onClick = () => {
+      switch (audioState) {
+        case "playing": {
+          setAudioState("paused");
+
+          break;
+        }
+
+        case "pending":
+        case "paused": {
+          setAudioState("playing");
+          break;
+        }
+
+        case "ended": {
+          setAudioState("playing");
+          break;
+        }
+      }
+    };
 
     return (
       <div
@@ -37,6 +48,12 @@ export const Default: Story = {
           justifyContent: "center"
         }}
       >
+        <button
+          onClick={onClick}
+          disabled={["unset", "loading"].includes(audioState)}
+        >
+          {audioState}
+        </button>
         <input
           type="file"
           onChange={e => {
@@ -50,51 +67,18 @@ export const Default: Story = {
             }
           }}
         />
-        <button onClick={togglePlay}>
-          {playing ? "Pause" : over ? "Restart" : "Play"}
-        </button>
+
         {src && (
           <AudioVisualizer
             src={src}
             width={800}
             height={400}
-            playing={playing}
-            onPlayingChange={setPlaying}
-            ended={over}
-            onEndedChange={setOver}
-            barWidth={(width, length) => (width / length) * 10}
+            audioState={audioState}
+            onAudioStateChange={setAudioState}
+            autoStart={false}
+            //  fftSize={256}
             barHeight={defaultHeight => defaultHeight}
-            barColor={(height, index, length) => {
-              const r = height + 25 * (index / length);
-              const g = 250 * (index / length);
-              const b = 50;
-
-              return `rgb(${r}, ${g}, ${b})`;
-            }}
-            customDrawFunction={(ctx, { x, barWidth, barHeight }) => {
-              ctx.fillRect(
-                ctx.canvas.width / 2 - x,
-                ctx.canvas.height - barHeight,
-                barWidth,
-                barHeight
-              );
-              ctx.fillRect(
-                ctx.canvas.width / 2 + x,
-                ctx.canvas.height - barHeight,
-                barWidth,
-                barHeight
-              );
-            }}
-            autoStart={true}
-            onSourceLoaded={() => {
-              console.log("source loaded");
-            }}
-            onSourceStarted={() => {
-              console.log("source started");
-            }}
-            onSourceEnded={() => {
-              console.log("source ended");
-            }}
+            barWidth={(w, l) => (w / l) * 10}
             {...props}
           />
         )}
