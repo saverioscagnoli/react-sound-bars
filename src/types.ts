@@ -96,6 +96,12 @@ type AudioVisualizerProps = React.ComponentPropsWithoutRef<"canvas"> & {
   onAudioStateChange?: (state: AudioState) => void;
 
   /**
+   * Function that gets called when the time of the source changes
+   * (e.g when the source is playing, used to update the time of the audio player)
+   */
+  onTimeChange?: (time: number) => void;
+
+  /**
    * Wheter the source should start automatically after loading
    * @default true
    */

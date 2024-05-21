@@ -11,6 +11,7 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
   autoStart = true,
   audioState: audioStateProp,
   onAudioStateChange: onAudioStateChangeProp,
+  onTimeChange,
   stagger = 1,
   barWidth = (w, l) => w / l,
   barHeight = h => h,
@@ -30,11 +31,8 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
    */
   const [audioContext, analyser] = useMemo(() => {
     const audioContext = new AudioContext();
-
     const analyser = audioContext.createAnalyser();
-
     analyser.fftSize = fftSize;
-
     return [audioContext, analyser];
   }, [fftSize]);
 
@@ -43,7 +41,6 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
    * but they don't need to be controlled. So, we use an internal state if not provided
    */
   const [internalState, setInternalState] = useState<AudioState>("unset");
-
   const audioState = audioStateProp ?? internalState;
   const onAudioStateChange = onAudioStateChangeProp ?? setInternalState;
 
@@ -73,6 +70,12 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
     () => [startRef.current!, stopRef.current!],
     [startRef.current, stopRef.current]
   );
+
+  /**
+   * Keep track of the start and pause time to handle the timing of the audio
+   */
+  const startTime = useRef<number>(0);
+  const pauseTime = useRef<number>(0);
 
   /**
    * This function is called when the audio source is loaded.
@@ -120,6 +123,9 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
      * Reset the source to avoid problems with the previous source
      */
     sourceRef.current = null;
+    startTime.current = 0;
+    pauseTime.current = 0;
+    onTimeChange?.(0);
 
     loadAndEmitAudioSource(
       src,
@@ -133,6 +139,31 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
   }, [src]);
 
   /**
+   * Manage timing updates based on the audio context's current time
+   */
+  useEffect(() => {
+    let interval: NodeJS.Timeout | null = null;
+
+    if (audioState === "playing") {
+      interval = setInterval(() => {
+        const currentTime = audioContext.currentTime - startTime.current;
+        onTimeChange?.(+currentTime.toFixed(1));
+      }, 100);
+    } else if (audioState === "paused" || audioState === "ended") {
+      if (interval !== null) {
+        clearInterval(interval);
+        interval = null;
+      }
+    }
+
+    return () => {
+      if (interval !== null) {
+        clearInterval(interval);
+      }
+    };
+  }, [audioState, audioContext, startTime, pauseTime]);
+
+  /**
    * Audio state management
    */
   useEffect(() => {
@@ -142,11 +173,16 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
        */
       case "pending": {
         if (autoStart) {
-          startAudioSource(sourceRef.current!, startAnimation);
+          startAudioSource(
+            sourceRef.current!,
+            startAnimation,
+            audioContext.currentTime,
+            startTime,
+            pauseTime
+          );
           onSourceStarted?.();
           onAudioStateChange("playing");
         }
-
         break;
       }
 
@@ -156,14 +192,14 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
          * the user changed the state manually, so we have to start the audio source
          */
         if (prevState.current === "pending" && !autoStart) {
-          startAudioSource(sourceRef.current!, startAnimation);
+          startAudioSource(
+            sourceRef.current!,
+            startAnimation,
+            audioContext.currentTime,
+            startTime,
+            pauseTime
+          );
           onSourceStarted?.();
-
-          /**
-           * If the previous state was ended, it means that
-           * the user wants to restart the audio source,
-           * so we have to reload it.
-           */
         } else if (prevState.current === "ended") {
           loadAndEmitAudioSource(
             src,
@@ -175,28 +211,28 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
             onSourceLoaded
           ).then(() => {
             /**
-             * This may seem counterintuitive, but it's necessary when to restart the audio when the user wants
+             * This may seem counterintuitive, but it's necessary to restart the audio when the user wants
              * If the autostart is true, it handles that automatically in the pending state,
              * If not, we have to start the audio manually
              */
             if (!autoStart) {
-              startAudioSource(sourceRef.current!, startAnimation);
+              startAudioSource(
+                sourceRef.current!,
+                startAnimation,
+                audioContext.currentTime,
+                startTime,
+                pauseTime
+              );
               onSourceStarted?.();
               onAudioStateChange("playing");
             }
           });
-
-          /**
-           * If the previous state was paused, it means that
-           * the user wants to resume the audio source,
-           * so resume the source animation of the visualizer.
-           */
         } else if (prevState.current === "paused") {
           startAnimation();
+          startTime.current = audioContext.currentTime - pauseTime.current;
         }
 
         audioContext.resume();
-
         break;
       }
 
@@ -205,6 +241,7 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
        */
       case "paused": {
         stopAnimation();
+        pauseTime.current = audioContext.currentTime - startTime.current;
         audioContext.suspend();
         break;
       }
@@ -215,6 +252,9 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
       case "ended": {
         stopAnimation();
         onSourceEnded?.();
+        startTime.current = 0;
+        pauseTime.current = 0;
+
         break;
       }
     }
@@ -223,7 +263,7 @@ const AudioVisualizer: React.FC<AudioVisualizerProps> = ({
      * Update the previous state
      */
     prevState.current = audioState;
-  }, [audioState]);
+  }, [audioState, startTime, pauseTime]);
 
   return <canvas {...props} ref={canvasRef} />;
 };

@@ -30,10 +30,14 @@ async function loadAudioSource(
 
 function startAudioSource(
   source: AudioBufferSourceNode,
-  startAnimation: () => void
+  startAnimation: () => void,
+  currentTime: number,
+  startTime: MutableRefObject<number>,
+  pauseTime: MutableRefObject<number>
 ) {
   source.start();
   startAnimation();
+  startTime.current = currentTime - pauseTime.current;
 }
 
 async function loadAndEmitAudioSource(

@@ -16,6 +16,7 @@ export const Default: Story = {
   render: ({ src: _, audioState: _1, onAudioStateChange: _2, ...props }) => {
     const [src, setSrc] = React.useState<string | null>(null);
     const [audioState, setAudioState] = useState<AudioState>("unset");
+    const [time, setTime] = useState(0);
 
     const onClick = () => {
       switch (audioState) {
@@ -54,6 +55,7 @@ export const Default: Story = {
         >
           {audioState}
         </button>
+        <p>{time}</p>
         <input
           type="file"
           onChange={e => {
@@ -75,6 +77,7 @@ export const Default: Story = {
             height={400}
             audioState={audioState}
             onAudioStateChange={setAudioState}
+            onTimeChange={setTime}
             autoStart={false}
             //  fftSize={256}
             barHeight={defaultHeight => defaultHeight}
