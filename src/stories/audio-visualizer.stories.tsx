@@ -1,6 +1,7 @@
 import { Meta, StoryObj } from "@storybook/react";
 import React, { useState } from "react";
-import { AudioState, AudioVisualizer } from "..";
+import { AudioVisualizer } from "..";
+import { AudioState } from "../types";
 
 const meta: Meta<typeof AudioVisualizer> = {
   title: "AudioVisualizer",
@@ -24,19 +25,18 @@ export const Default: Story = {
           break;
         }
 
+        case "pending":
         case "paused": {
           setAudioState("playing");
-
           break;
         }
 
         case "ended": {
           setAudioState("playing");
+          break;
         }
       }
     };
-
-    console.log(audioState);
 
     return (
       <div
@@ -48,7 +48,10 @@ export const Default: Story = {
           justifyContent: "center"
         }}
       >
-        <button onClick={onClick} disabled={audioState === "unset"}>
+        <button
+          onClick={onClick}
+          disabled={["unset", "loading"].includes(audioState)}
+        >
           {audioState}
         </button>
         <input
@@ -72,30 +75,10 @@ export const Default: Story = {
             height={400}
             audioState={audioState}
             onAudioStateChange={setAudioState}
-            autoStart={true}
-            barWidth={(width, length) => (width / length) * 10}
+            autoStart={false}
+            //  fftSize={256}
             barHeight={defaultHeight => defaultHeight}
-            barColor={(height, index, length) => {
-              const r = height + 25 * (index / length);
-              const g = 250 * (index / length);
-              const b = 50;
-
-              return `rgb(${r}, ${g}, ${b})`;
-            }}
-            customDrawFunction={(ctx, { x, barWidth, barHeight }) => {
-              ctx.fillRect(
-                ctx.canvas.width / 2 - x,
-                ctx.canvas.height - barHeight,
-                barWidth,
-                barHeight
-              );
-              ctx.fillRect(
-                ctx.canvas.width / 2 + x,
-                ctx.canvas.height - barHeight,
-                barWidth,
-                barHeight
-              );
-            }}
+            barWidth={(w, l) => (w / l) * 10}
             {...props}
           />
         )}
