@@ -1,3 +1,5 @@
+import type { ComponentProps } from "react";
+
 /**
  * The possible states of the audio source
  *
@@ -10,16 +12,31 @@
  */
 type AudioState = "unset" | "loading" | "pending" | "paused" | "playing" | "ended";
 
+/**
+ * The possible arguments for the width of the bars
+ * This could be a fixed number, or a function can be passed with the canvasWidth and
+ * the buffer length, so it can be setted programmatically.
+ */
 type CustomBarWidthArg =
   | ((canvasWidth: number, bufferLength: number) => number)
   | number;
 
+/**
+ * The possible arguments for the height of the bars
+ * This is a function that must return the actual number.
+ * Note: this function gets called for each bar in the visualizer.
+ */
 type CustomBarHeightArg = (
   defaultHeight: number,
   bufferLength: number,
   index: number
 ) => number;
 
+/**
+ * The possible arguments for the color of the bars
+ * This could be a CanvasGradient, CanvasPattern or a string.
+ * Or it could be function that must return a CanvasGradient, CanvasPattern or a string.
+ */
 type CustomBarColorArg =
   | ((
       barHeight: number,
@@ -60,63 +77,121 @@ type CustomDrawFunctionArgs = {
   index: number;
 };
 
+type CustomDrawFunction = (
+  ctx: CanvasRenderingContext2D,
+  args: CustomDrawFunctionArgs
+) => void;
+
 export type {
   AudioState,
   CustomBarColorArg,
   CustomBarHeightArg,
   CustomBarWidthArg,
+  CustomDrawFunction,
   CustomDrawFunctionArgs
 };
 
-type AudioVisualizerProps = React.ComponentPropsWithoutRef<"canvas"> & {
+type AudioVisualizerProps = ComponentProps<"canvas"> & {
   /**
-   * The source of the audio file as a string.
-   * It could be either a path to a local file, or a base64 string.
+   * The source of the audio to visualize
    */
   src: string;
 
   /**
-   * The state of the audio source.
-   *
-   * @example
-   * const [audioState, setAudioState] = useState<AudioState>("unset");
-   *
-   * <AudioVisualizer src="path/to/audio.mp3" audioState={audioState} onAudioStateChange={setAudioState} />
+   * The current state of the audio source
+   * @default "unset"
+   * @see AudioState
    */
   audioState?: AudioState;
 
   /**
-   * Callback function fired when the audio state changes.
+   * A callback that is called when the audio source changes state
    *
+   * @param audioState The new state of the audio source
    * @example
+   * ```tsx
    * const [audioState, setAudioState] = useState<AudioState>("unset");
    *
-   * <AudioVisualizer src="path/to/audio.mp3" audioState={audioState} onAudioStateChange={setAudioState} />
+   * <AudioVisualizer
+   *  src={src}
+   *  audioState={audioState}
+   *  onAudioStateChange={setAudioState}
+   * />
+   * ```
    */
-  onAudioStateChange?: (state: AudioState) => void;
+  onAudioStateChange?: (audioState: AudioState) => void;
 
   /**
-   * Function that gets called when the time of the source changes
-   * (e.g when the source is playing, used to update the time of the audio player)
+   * The interval in milliseconds at which the time elapesed is updated
+   *
+   * @default 1000
+   * @example
+   * ```tsx
+   * <AudioVisualizer
+   *  src={src}
+   *  timeFactor={100}
+   *  onTimeChange={time => console.log(time)} // This will log every 0.1 seconds
+   * />
+   * ```
+   */
+  timeFactor?: number;
+
+  /**
+   * Callback that is called when the time elapsed changes.
+   *
+   * @param time The current time elapsed in seconds
    */
   onTimeChange?: (time: number) => void;
 
   /**
-   * Wheter the source should start automatically after loading
-   * @default true
+   * Whether the audio should start playing as soon as it is loaded
    */
   autoStart?: boolean;
 
   /**
-   * The rate at which the rendering function should be throttled, saving performance.
+   * The volume of the audio source
+   * It should be a number between 0 and 1, error will be thrown otherwise
+   *
    * @default 1
+   * @example
+   * ```tsx
+   * const [volume, setVolume] = useState(1);
+   *
+   * <AudioVisualizer
+   *  src={src}
+   *  volume={volume}
+   * />
+   */
+  volume?: number;
+
+  /**
+   * The number of frames to skip before updating the visualizer
+   * This is used to save performance.
+   * The higher the number, the less frequent the visualizer updates
    */
   stagger?: number;
+
+  /**
+   * The size of the Fast Fourier Transform (FFT) to use.
+   * It should be a power of 2 between 32 and 32768
+   * @see https://developer.mozilla.org/en-US/docs/Web/API/AnalyserNode/fftSize
+   *
+   * @default 2048
+   */
+  fftSize?: number;
+
+  /**
+   * The speed at which the audio should play
+   *
+   * @default 1
+   */
+  playbackRate?: number;
 
   /**
    * The width of the bars. This could be a fixed number, or a function can be passed with the canvasWidth and
    * the buffer length, so it can be setted programmatically.
    *
+   * @see CustomBarWidthArg
    * @default (canvasWidth, freqLength) => canvasWidth / freqLength
    */
   barWidth?: CustomBarWidthArg;
@@ -150,13 +225,6 @@ type AudioVisualizerProps = React.ComponentPropsWithoutRef<"canvas"> & {
   spaceBetweenBars?: number;
 
   /**
-   * fftSize
-   * @default 2048
-   * @see https://developer.mozilla.org/en-US/docs/Web/API/AnalyserNode/fftSize
-   */
-  fftSize?: number;
-
-  /**
    * This is a custom function that defines how each bar is drawn.
    * Note: this function gets called for each bar in the visualizer.
    *
@@ -167,26 +235,36 @@ type AudioVisualizerProps = React.ComponentPropsWithoutRef<"canvas"> & {
    *
    * @default (ctx, { x, canvasHeight, barWidth, barHeight }) => ctx.fillRect(x, canvasHeight - barHeight, barWidth, barHeight);
    */
-  customDrawFunction?: (
-    ctx: CanvasRenderingContext2D,
-    args: CustomDrawFunctionArgs
-  ) => void;
+  customDrawFunction?: CustomDrawFunction;
 
   /**
-   * Callback function fired when the source is loaded
-   * @param source the source buffer
+   * Callback that is called when the audio source is loaded
+   *
+   * @param audio The audio element
    */
-  onSourceLoaded?: (source: AudioBufferSourceNode) => void;
+  onSourceLoaded?: (audio: HTMLAudioElement) => void;
 
   /**
-   * Callback function fired when the source starts.
+   * Callback that is called when the audio source is paused
+   *
+   * @param audio The audio element
    */
-  onSourceStarted?: () => void;
+
+  onSourceEnded?: (audio: HTMLAudioElement) => void;
 
   /**
-   * Callback function fired when the source ends.
+   * Callback that is called when the audio source is paused
+   *
+   * @param audio The audio element
    */
-  onSourceEnded?: () => void;
+  onSourcePaused?: (audio: HTMLAudioElement) => void;
+
+  /**
+   * Callback that is called when the audio source is playing
+   *
+   * @param audio The audio element
+   */
+  onSourcePlaying?: (audio: HTMLAudioElement) => void;
 };
 
 export type { AudioVisualizerProps };

@@ -1,82 +1,81 @@
-import { MutableRefObject } from "react";
 import {
   AudioState,
   CustomBarColorArg,
   CustomBarHeightArg,
   CustomBarWidthArg,
-  CustomDrawFunctionArgs
+  CustomDrawFunction
 } from "./types";
 
-async function loadAudioSource(
+/**
+ * Loads an audio source and connects it to an analyser node
+ *
+ * @param src The source of the audio to visualize
+ * @param audioContext The audio context to use
+ * @param analyser The analyser node to use
+ * @param setAudioState The function to set the audio state
+ * @param onLoad The function to call when the audio is loaded
+ * @param onEnded The function to call when the audio ends
+ * @returns An HTMLAudioElement with the source set to `src`
+ */
+function load(
   src: string,
   audioContext: AudioContext,
   analyser: AnalyserNode,
-  onAudioStateChange: (state: AudioState) => void
-): Promise<AudioBufferSourceNode> {
-  onAudioStateChange("loading");
+  setAudioState: (audioState: AudioState) => void,
+  onLoad: () => void,
+  onEnded: () => void
+): HTMLAudioElement {
+  const audio = new Audio(src);
 
-  const res = await fetch(src);
-  const arrayBuffer = await res.arrayBuffer();
-  const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+  audio.onloadedmetadata = onLoad;
+  audio.onended = onEnded;
 
-  const source = audioContext.createBufferSource();
-  source.buffer = audioBuffer;
+  const source = audioContext.createMediaElementSource(audio);
 
-  source.connect(audioContext.destination);
   source.connect(analyser);
+  source.connect(audioContext.destination);
 
-  return source;
+  setAudioState("pending");
+
+  return audio;
 }
 
-function startAudioSource(
-  source: AudioBufferSourceNode,
-  startAnimation: () => void,
-  currentTime: number,
-  startTime: MutableRefObject<number>,
-  pauseTime: MutableRefObject<number>
-) {
-  source.start();
-  startAnimation();
-  startTime.current = currentTime - pauseTime.current;
-}
-
-async function loadAndEmitAudioSource(
-  src: string,
-  audioContext: AudioContext,
+/**
+ * Function to create the animation handlers
+ * The handlers are 2 functions, one starts the animation and the other stops it
+ * Must be used in pair
+ *
+ * @param analyser The analyser node to use
+ * @param canvas The reference to the canvas element
+ * @param stagger The number of frames to skip before drawing
+ * @param barWidth The width of each bar
+ * @param barHeight The height of each bar
+ * @param barColor The color of each bar
+ * @param spaceBetweenBars The space between each bar
+ * @param drawFunction The draw function to use
+ * @returns A tuple of functions.
+ */
+function createAnimationHandlers(
   analyser: AnalyserNode,
-  sourceRef: MutableRefObject<AudioBufferSourceNode | null>,
-  onSourceEnded: (() => void) | undefined,
-  onAudioStateChange: (state: AudioState) => void,
-  onSourceLoaded: () => void
-) {
-  const source = await loadAudioSource(
-    src,
-    audioContext,
-    analyser,
-    onAudioStateChange
-  );
-
-  sourceRef.current = source;
-
-  source.onended = () => {
-    onSourceEnded?.();
-    onAudioStateChange("ended");
-  };
-
-  onSourceLoaded();
-}
-
-const createAnimationHandlers = (
-  analyser: AnalyserNode,
-  ctx: CanvasRenderingContext2D,
+  canvas: HTMLCanvasElement,
   stagger: number,
   barWidth: CustomBarWidthArg,
   barHeight: CustomBarHeightArg,
   barColor: CustomBarColorArg,
-  drawFunction: (ctx: CanvasRenderingContext2D, args: CustomDrawFunctionArgs) => void
-) => {
+  spaceBetweenBars: number,
+  drawFunction: CustomDrawFunction
+): [() => void, () => void] {
   let frameID: number;
   let frame = 0;
+
+  const ctx = canvas.getContext("2d");
+
+  if (!ctx) {
+    throw new Error("Canvas 2D context is not supported");
+  }
+
+  const getBarWidth = typeof barWidth === "function" ? barWidth : () => barWidth;
+  const getBarColor = typeof barColor === "function" ? barColor : () => barColor;
 
   const draw = () => {
     frame++;
@@ -86,57 +85,39 @@ const createAnimationHandlers = (
       return;
     }
 
-    const buffer = new Uint8Array(analyser.frequencyBinCount);
-    analyser.getByteFrequencyData(buffer);
-    ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+    let buffer = new Uint8Array(analyser.frequencyBinCount);
 
-    /**
-     * Check for user customization and set bar width accordingly
-     */
-    let bw =
-      typeof barWidth === "function"
-        ? barWidth(ctx.canvas.width, buffer.length)
-        : barWidth;
+    analyser.getByteFrequencyData(buffer);
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    let bw = getBarWidth(canvas.width, buffer.length);
 
     let x = 0;
 
     for (let i = 0; i < buffer.length; i++) {
-      const defaultHeight = buffer[i];
+      let bh = barHeight(buffer[i], buffer.length, i);
 
-      /**
-       * Check for user customization and set bar height and color accordingly
-       */
-      let bh = barHeight(defaultHeight, buffer.length, i);
-
-      /**
-       * Check for user customization and set bar color accordingly
-       */
-      let bc =
-        typeof barColor === "function" ? barColor(bh, defaultHeight, i) : barColor;
-
-      ctx.fillStyle = bc;
+      ctx.fillStyle = getBarColor(bh, buffer.length, i);
 
       drawFunction(ctx, {
-        canvasHeight: ctx.canvas.height,
-        canvasWidth: ctx.canvas.width,
+        canvasWidth: canvas.width,
+        canvasHeight: canvas.height,
         barWidth: bw,
         barHeight: bh,
         x,
         index: i
       });
 
-      x += bw + 1;
+      x += bw + spaceBetweenBars;
     }
 
     frameID = requestAnimationFrame(draw);
   };
 
-  return [() => cancelAnimationFrame(frameID), draw] as const;
-};
+  const stop = () => cancelAnimationFrame(frameID);
 
-export {
-  createAnimationHandlers,
-  loadAndEmitAudioSource,
-  loadAudioSource,
-  startAudioSource
-};
+  return [draw, stop];
+}
+
+export { createAnimationHandlers, load };
