@@ -124,10 +124,12 @@ export const Default: Story = {
           {src && (
             <AudioVisualizer
               src={src}
+              width={700}
+              height={300}
               audioState={audioState}
               onAudioStateChange={setAudioState}
               //autoStart={false}
-              //barWidth={4}
+              barWidth={4}
               timeFactor={100}
               stagger={stagger}
               fftSize={fftSize}
@@ -144,25 +146,43 @@ export const Default: Story = {
                 setDuration(+audio.duration.toFixed(1));
                 setTime(0);
               }}
+              barColor={(h, l, i) => `hsl(${(1360 / l) * i}, ${h}%, 50%)`}
               customDrawFunction={(
                 ctx,
-                { x, barHeight, barWidth, canvasHeight, canvasWidth }
+                {
+                  x,
+                  barHeight,
+                  barWidth,
+                  canvasHeight,
+                  canvasWidth,
+                  index,
+                  bufferLength
+                }
               ) => {
-                ctx.fillRect(
-                  canvasWidth / 2 - x,
-                  canvasHeight - barHeight,
+                const threshold = 0.1;
 
-                  barWidth,
-                  barHeight
-                );
+                if (Math.abs(x) < threshold) {
+                  ctx.fillRect(
+                    canvasWidth / 2 - barWidth / 2,
+                    canvasHeight - barHeight,
+                    barWidth,
+                    barHeight
+                  );
+                } else {
+                  ctx.fillRect(
+                    canvasWidth / 2 - x - barWidth / 2,
+                    canvasHeight - barHeight,
+                    barWidth,
+                    barHeight
+                  );
 
-                ctx.fillRect(
-                  canvasWidth / 2 + x,
-                  canvasHeight - barHeight,
-
-                  barWidth,
-                  barHeight
-                );
+                  ctx.fillRect(
+                    canvasWidth / 2 + x - barWidth / 2,
+                    canvasHeight - barHeight,
+                    barWidth,
+                    barHeight
+                  );
+                }
               }}
             />
           )}

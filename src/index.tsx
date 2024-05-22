@@ -9,6 +9,7 @@ const AudioVisualizer: FC<AudioVisualizerProps> = ({
   timeFactor = 1000,
   onTimeChange,
   autoStart = true,
+  loop = false,
   volume = 1,
   stagger = 1,
   fftSize = 256,
@@ -24,7 +25,8 @@ const AudioVisualizer: FC<AudioVisualizerProps> = ({
   onSourceLoaded,
   onSourceEnded,
   onSourcePaused,
-  onSourcePlaying
+  onSourcePlaying,
+  ...props
 }) => {
   /**
    * Create the audio context and analyser node
@@ -149,6 +151,15 @@ const AudioVisualizer: FC<AudioVisualizerProps> = ({
   }, [src]);
 
   /**
+   * Make sure the audio is looped when the `loop` prop is changed
+   */
+  useEffect(() => {
+    if (!audioRef.current) return;
+
+    audioRef.current.loop = loop;
+  }, [loop]);
+
+  /**
    * Make sure the speed is changed when the `playbackRate` prop is changed
    */
   useEffect(() => {
@@ -233,7 +244,7 @@ const AudioVisualizer: FC<AudioVisualizerProps> = ({
     }
   }, [audioState]);
 
-  return <canvas ref={canvasRef} />;
+  return <canvas ref={canvasRef} {...props} />;
 };
 
 export { AudioVisualizer };
