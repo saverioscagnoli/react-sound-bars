@@ -106,6 +106,7 @@ function createAnimationHandlers(
         barWidth: bw,
         barHeight: bh,
         x,
+        bufferLength: buffer.length,
         index: i
       });
 

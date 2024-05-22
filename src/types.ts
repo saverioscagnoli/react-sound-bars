@@ -1,4 +1,4 @@
-import type { ComponentProps } from "react";
+import type { ComponentPropsWithoutRef, RefObject } from "react";
 
 /**
  * The possible states of the audio source
@@ -67,6 +67,11 @@ type CustomDrawFunctionArgs = {
   barHeight: number;
 
   /**
+   * The length of the buffer
+   */
+  bufferLength: number;
+
+  /**
    * The default x of the canvas
    */
   x: number;
@@ -91,7 +96,7 @@ export type {
   CustomDrawFunctionArgs
 };
 
-type AudioVisualizerProps = ComponentProps<"canvas"> & {
+type AudioVisualizerProps = ComponentPropsWithoutRef<"canvas"> & {
   /**
    * The source of the audio to visualize
    */
@@ -147,6 +152,11 @@ type AudioVisualizerProps = ComponentProps<"canvas"> & {
    * Whether the audio should start playing as soon as it is loaded
    */
   autoStart?: boolean;
+
+  /**
+   * Whether the audio should loop
+   */
+  loop?: boolean;
 
   /**
    * The volume of the audio source
@@ -265,6 +275,11 @@ type AudioVisualizerProps = ComponentProps<"canvas"> & {
    * @param audio The audio element
    */
   onSourcePlaying?: (audio: HTMLAudioElement) => void;
+
+  /**
+   * A ref to the canvas element
+   */
+  canvasRef?: RefObject<HTMLCanvasElement | null>;
 };
 
 export type { AudioVisualizerProps };
