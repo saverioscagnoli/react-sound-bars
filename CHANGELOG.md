@@ -1,5 +1,11 @@
 # react-visual-audio
 
+## 1.1.0
+
+### Minor Changes
+
+- 3238eeb: Create Audio context only when the source changes, to prevent any error from the browser if the user did not interact with the page
+
 ## 1.0.5
 
 ### Patch Changes
