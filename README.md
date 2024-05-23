@@ -1,6 +1,5 @@
-y<div align="center">
+<div align="center">
 <img src="./docs/logo.gif">
-
 </div>
 
 # Introduction
