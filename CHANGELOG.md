@@ -1,5 +1,11 @@
 # react-visual-audio
 
+## 1.0.4
+
+### Patch Changes
+
+- 4c2a6a0: Remove postinstall script
+
 ## 1.0.3
 
 ### Patch Changes
