@@ -247,4 +247,5 @@ const AudioVisualizer: FC<AudioVisualizerProps> = ({
   return <canvas ref={canvasRef} {...props} />;
 };
 
+export * from "./types";
 export { AudioVisualizer };
