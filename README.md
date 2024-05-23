@@ -2,11 +2,11 @@
 <img src="./docs/logo.gif">
 </div>
 
-<div style="display: flex; justify-content: center; gap: 1.5rem;">
-<a href="#introduction">Introduction</a>
-<a href="#installation">Installation</a>
-<a href="#usage">Usage</a>
-<a href="#documentation">Documentation</a>
+<div align="center">
+<a href="#introduction">Introduction</a> &nbsp;
+<a href="#installation">Installation</a> &nbsp;
+<a href="#usage">Usage</a> &nbsp;
+<a href="#documentation">Documentation</a> &nbsp;
 <a href="#license">License</a>
 </div>
 
