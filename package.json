@@ -12,8 +12,7 @@
     "lint": "tsc",
     "build": "yarn lint && tsup ",
     "storybook": "storybook dev -p 6006",
-    "build-storybook": "storybook build",
-    "postinstall": "husky"
+    "build-storybook": "storybook build"
   },
   "lint-staged": {
     "**/*": "prettier --write --ignore-unknown"
