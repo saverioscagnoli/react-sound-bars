@@ -5,6 +5,7 @@
 .vscode
 node_modules
 src
+docs
 .eslintrc
 .gitignore
 .prettierrc
