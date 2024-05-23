@@ -3,6 +3,18 @@
 </div>
 
 <div align="center">
+<img alt="GitHub Actions Workflow Status" src="https://img.shields.io/github/actions/workflow/status/saverioscagnoli/react-visual-audio/main.yml">
+&nbsp;
+<img alt="NPM License" src="https://img.shields.io/npm/l/react-visual-audio">
+&nbsp;
+<img src="https://img.shields.io/badge/Dependencies-0-2ea44f" alt="Dependencies - 0">
+&nbsp;
+<a href="https://www.npmjs.com/package/react-visual-audio"><img alt="NPM Version" src="https://img.shields.io/npm/v/react-visual-audio"></a>
+&nbsp;
+<img alt="GitHub last commit" src="https://img.shields.io/github/last-commit/saverioscagnoli/react-visual-audio">
+</div>
+
+<div align="center">
 <a href="#introduction">Introduction</a> &nbsp;
 <a href="#installation">Installation</a> &nbsp;
 <a href="#usage">Usage</a> &nbsp;
