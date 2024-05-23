@@ -1,5 +1,11 @@
 # react-visual-audio
 
+## 1.0.2
+
+### Patch Changes
+
+- d92435d: Added badged to readme
+
 ## 1.0.1
 
 ### Patch Changes
