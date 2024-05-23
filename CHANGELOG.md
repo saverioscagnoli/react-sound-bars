@@ -1,5 +1,11 @@
 # react-visual-audio
 
+## 1.0.3
+
+### Patch Changes
+
+- 9f747d3: Forgot to build before publishing :3
+
 ## 1.0.2
 
 ### Patch Changes
