@@ -82,6 +82,13 @@ type CustomDrawFunctionArgs = {
   index: number;
 };
 
+/**
+ * A custom function that defines how each bar is drawn.
+ * Note: this function gets called for each bar in the visualizer.
+ * @param ctx The canvas context
+ * @param args The necessary args to customize the drawing process
+ * @see CustomDrawFunctionArgs
+ */
 type CustomDrawFunction = (
   ctx: CanvasRenderingContext2D,
   args: CustomDrawFunctionArgs
