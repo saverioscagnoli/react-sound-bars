@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState, type FC } from "react";
+import React, { useEffect, useRef, useState, type FC } from "react";
 import { createAnimationHandlers, load } from "./scripts";
 import type { AudioState, AudioVisualizerProps } from "./types";
 
@@ -31,12 +31,8 @@ const AudioVisualizer: FC<AudioVisualizerProps> = ({
   /**
    * Create the audio context and analyser node
    */
-  const [audioContext, analyser] = useMemo(() => {
-    const audioContext = new AudioContext();
-    const analyser = audioContext.createAnalyser();
-
-    return [audioContext, analyser];
-  }, []);
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const analyserRef = useRef<AnalyserNode | null>(null);
 
   /**
    * Create an internal state for the audio source,
@@ -58,21 +54,13 @@ const AudioVisualizer: FC<AudioVisualizerProps> = ({
   const stopAnimationRef = useRef<(() => void) | null>(null);
 
   /**
-   * Create handlers so every time we don't have to call
-   * `startAnimationRef.current!` and `stopAnimationRef.current!`
-   */
-  const [startAnimation, stopAnimation] = useMemo(
-    () => [startAnimationRef.current!, stopAnimationRef.current!],
-    [startAnimationRef.current, stopAnimationRef.current]
-  );
-
-  /**
    * This useEffect hook is responsible for creating the animation
    * When any prop that affects the animation is changed, this hook
    * will reset the animation
    */
   useEffect(() => {
-    if (!canvasRef.current || !analyser) return;
+    if (!canvasRef.current || !audioContextRef.current || !analyserRef.current)
+      return;
 
     let alreadyRunning = false;
 
@@ -85,14 +73,14 @@ const AudioVisualizer: FC<AudioVisualizerProps> = ({
       stopAnimationRef.current &&
       audioState === "playing"
     ) {
-      stopAnimation();
+      stopAnimationRef.current();
       alreadyRunning = true;
     }
 
-    analyser.fftSize = fftSize;
+    analyserRef.current.fftSize = fftSize;
 
     const [start, stop] = createAnimationHandlers(
-      analyser,
+      analyserRef.current,
       canvasRef.current,
       stagger,
       barWidth,
@@ -111,7 +99,7 @@ const AudioVisualizer: FC<AudioVisualizerProps> = ({
 
     startAnimationRef.current = start;
     stopAnimationRef.current = stop;
-  }, [analyser, stagger, fftSize, spaceBetweenBars, playbackRate]);
+  }, [analyserRef.current, stagger, fftSize, spaceBetweenBars, playbackRate]);
 
   /**
    * This useEffect hook is responsible for loading the audio source
@@ -121,20 +109,25 @@ const AudioVisualizer: FC<AudioVisualizerProps> = ({
   useEffect(() => {
     if (!canvasRef.current || !src) return;
 
+    if (!audioContextRef.current || !analyserRef.current) {
+      audioContextRef.current = new AudioContext();
+      analyserRef.current = audioContextRef.current.createAnalyser();
+    }
+
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.onended = null;
       audioRef.current = null;
 
       if (!autoStart) {
-        stopAnimation();
+        stopAnimationRef.current?.();
       }
     }
 
     const audio = load(
       src,
-      audioContext,
-      analyser,
+      audioContextRef.current,
+      analyserRef.current,
       onAudioStateChange,
       () => onSourceLoaded?.(audio),
       () => onAudioStateChange("ended")
@@ -221,7 +214,7 @@ const AudioVisualizer: FC<AudioVisualizerProps> = ({
         audioRef.current.play();
 
         onSourcePlaying?.(audioRef.current);
-        startAnimation();
+        startAnimationRef.current?.();
         break;
       }
 
@@ -229,7 +222,7 @@ const AudioVisualizer: FC<AudioVisualizerProps> = ({
         audioRef.current.pause();
 
         onSourcePaused?.(audioRef.current);
-        stopAnimation();
+        stopAnimationRef.current?.();
         break;
       }
 
@@ -238,7 +231,7 @@ const AudioVisualizer: FC<AudioVisualizerProps> = ({
         audioRef.current.currentTime = 0;
 
         onSourceEnded?.(audioRef.current);
-        stopAnimation();
+        stopAnimationRef.current?.();
         break;
       }
     }
