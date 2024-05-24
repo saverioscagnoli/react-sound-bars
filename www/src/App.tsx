@@ -1,10 +1,10 @@
 import { useState } from "react";
-import { AudioVisualizer } from "react-visual-audio";
+import { Button } from "~/components/tredici";
 
 function App() {
-  const [count, setCount] = useState(0);
+  const [src, setSrc] = useState<string | null>(null);
 
-  return <AudioVisualizer src="" />;
+  return <Button>Zio delle!</Button>;
 }
 
 export default App;
